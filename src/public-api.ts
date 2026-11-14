@@ -2,7 +2,11 @@ import { Composer } from './compose/composer.ts'
 import type { Reviver } from './doc/applyReviver.ts'
 import type { DocValue, Replacer } from './doc/Document.ts'
 import { Document } from './doc/Document.ts'
-import { prettifyError, YAMLParseError } from './errors.ts'
+import {
+  prettifyError,
+  type YAMLError,
+  YAMLParseError
+} from './errors.ts'
 import { warn } from './log.ts'
 import type {
   CreateNodeOptions,
@@ -28,6 +32,18 @@ function parseOptions(options: ParseOptions) {
 }
 
 /**
+ * Attach the verbatim source slice covered by each error position, so that
+ * errors and warnings always carry their source even when pretty-printing
+ * (line/column metadata and message decoration) is disabled.
+ */
+function attachErrorSource(source: string, errors: YAMLError[]): void {
+  for (const error of errors) {
+    const [start, end] = error.pos
+    error.source = start >= 0 && end >= start ? source.slice(start, end) : ''
+  }
+}
+
+/**
  * Parse the input as a stream of YAML documents.
  *
  * Documents should be separated from each other by `...` or `---` marker lines.
@@ -50,14 +66,24 @@ export function parseAllDocuments<Value extends DocValue = DocValue>(
       doc.errors.forEach(prettifyError(source, lineCounter))
       doc.warnings.forEach(prettifyError(source, lineCounter))
     }
+  else
+    for (const doc of docs) {
+      attachErrorSource(source, doc.errors)
+      attachErrorSource(source, doc.warnings)
+    }
 
   type DocType = Document.Parsed<Value>
   if (docs.length > 0) return docs as DocType[]
+  const info = composer.streamInfo()
+  // Stream-level errors/warnings are not attached to a document and therefore
+  // never pass through prettifyError(), so always set their source here.
+  attachErrorSource(source, info.errors)
+  attachErrorSource(source, info.warnings)
   return Object.assign<
     DocType[],
     { empty: true },
     ReturnType<Composer['streamInfo']>
-  >([], { empty: true }, composer.streamInfo())
+  >([], { empty: true }, info)
 }
 
 /** Parse an input string into a single YAML.Document */
@@ -93,6 +119,9 @@ export function parseDocument<Value extends DocValue = DocValue>(
   if (prettyErrors && lineCounter) {
     doc.errors.forEach(prettifyError(source, lineCounter))
     doc.warnings.forEach(prettifyError(source, lineCounter))
+  } else {
+    attachErrorSource(source, doc.errors)
+    attachErrorSource(source, doc.warnings)
   }
   return doc
 }

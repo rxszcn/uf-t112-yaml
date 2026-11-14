@@ -5,6 +5,7 @@ import type { BlockMap } from '../parse/cst.ts'
 import type { CollectionTag } from '../schema/types.ts'
 import type { ComposeContext, ComposeNode } from './compose-node.ts'
 import type { ComposeErrorHandler } from './composer.ts'
+import { mapKeyPathValue } from './node-path.ts'
 import { resolveProps } from './resolve-props.ts'
 import { containsNewline } from './util-contains-newline.ts'
 import { flowIndentCheck } from './util-flow-indent-check.ts'
@@ -20,6 +21,7 @@ export function resolveBlockMap(
 ): YAMLMap | YAMLSet {
   const NodeClass = tag?.nodeClass ?? YAMLMap
   const map = new NodeClass(ctx.schema) as YAMLMap | YAMLSet
+  const { nodePath } = ctx
 
   if (ctx.atRoot) ctx.atRoot = false
   let offset = bm.offset
@@ -75,6 +77,10 @@ export function resolveBlockMap(
       : composeEmptyNode(ctx, keyStart, start, null, keyProps, onError)
     if (ctx.schema.compat) flowIndentCheck(bm.indent, key, onError)
     ctx.atKey = false
+
+    // From here on, the item identifies this map entry by its resolved key
+    const keyPath = mapKeyPathValue(keyNode)
+    nodePath.path.push(keyPath)
 
     if (map.has(keyNode))
       onError(keyStart, 'DUPLICATE_KEY', 'Map keys must be unique')
@@ -150,6 +156,8 @@ export function resolveBlockMap(
         map.set(pair)
       }
     }
+
+    nodePath.path.pop()
   }
 
   if (commentEnd && commentEnd < offset)

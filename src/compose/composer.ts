@@ -1,6 +1,6 @@
 import { Directives } from '../doc/directives.ts'
 import { Document, type DocValue } from '../doc/Document.ts'
-import type { ErrorCode } from '../errors.ts'
+import type { ErrorCode, NodePath } from '../errors.ts'
 import { YAMLParseError, YAMLWarning } from '../errors.ts'
 import { isCollection } from '../nodes/identity.ts'
 import type { Range } from '../nodes/types.ts'
@@ -21,7 +21,8 @@ export type ComposeErrorHandler = (
   source: ErrorSource,
   code: ErrorCode,
   message: string,
-  warning?: boolean
+  warning?: boolean,
+  path?: NodePath
 ) => void
 
 function getErrorPos(src: ErrorSource): [number, number] {
@@ -90,10 +91,18 @@ export class Composer<Value extends DocValue = DocValue> {
     this.options = options
   }
 
-  private onError: ComposeErrorHandler = (source, code, message, warning) => {
+  private onError: ComposeErrorHandler = (
+    source,
+    code,
+    message,
+    warning,
+    path
+  ) => {
     const pos = getErrorPos(source)
-    if (warning) this.warnings.push(new YAMLWarning(pos, code, message))
-    else this.errors.push(new YAMLParseError(pos, code, message))
+    // Snapshot the path, as the tracker array is mutated during composition
+    const nodePath = path ? path.slice() : []
+    if (warning) this.warnings.push(new YAMLWarning(pos, code, message, nodePath))
+    else this.errors.push(new YAMLParseError(pos, code, message, nodePath))
   }
 
   private decorate(doc: Document.Parsed<Value>, afterDoc: boolean) {

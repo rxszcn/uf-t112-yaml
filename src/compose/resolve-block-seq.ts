@@ -15,12 +15,14 @@ export function resolveBlockSeq(
 ): YAMLSeq {
   const NodeClass = tag?.nodeClass ?? YAMLSeq
   const seq = new NodeClass(ctx.schema) as YAMLSeq
+  const { nodePath } = ctx
 
   if (ctx.atRoot) ctx.atRoot = false
   if (ctx.atKey) ctx.atKey = false
   let offset = bs.offset
   let commentEnd: number | null = null
-  for (const { start, value } of bs.items) {
+  for (let index = 0; index < bs.items.length; ++index) {
+    const { start, value } = bs.items[index]
     const props = resolveProps(start, {
       indicator: 'seq-item-ind',
       next: value,
@@ -45,12 +47,15 @@ export function resolveBlockSeq(
         continue
       }
     }
+    // From here on, the item identifies this sequence entry by its index
+    nodePath.path.push(index)
     const node = value
       ? composeNode(ctx, value, props, onError)
       : composeEmptyNode(ctx, props.end, start, null, props, onError)
     if (ctx.schema.compat) flowIndentCheck(bs.indent, value, onError)
     offset = node.range![2]
     seq._push(node)
+    nodePath.path.pop()
   }
   seq.range = [bs.offset, offset, commentEnd ?? offset]
   return seq

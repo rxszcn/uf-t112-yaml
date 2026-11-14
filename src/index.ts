@@ -14,7 +14,7 @@ export { Document, type DocValue } from './doc/Document.ts'
 export { Schema } from './schema/Schema.ts'
 
 export { YAMLError, YAMLParseError, YAMLWarning } from './errors.ts'
-export type { ErrorCode } from './errors.ts'
+export type { ErrorCode, NodePath, NodePathSegment } from './errors.ts'
 
 export { Alias } from './nodes/Alias.ts'
 export { isCollection, isNode } from './nodes/identity.ts'

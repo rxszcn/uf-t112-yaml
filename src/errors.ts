@@ -1,3 +1,4 @@
+import type { Primitive } from './nodes/types.ts'
 import type { LineCounter } from './parse/line-counter.ts'
 
 export type ErrorCode =
@@ -27,6 +28,20 @@ export type ErrorCode =
 
 export type LinePos = { line: number; col: number }
 
+/**
+ * A single node-path segment: a resolved map key or a sequence index.
+ */
+export type NodePathSegment = Primitive
+
+/**
+ * Path to the node or container that an error or warning relates to,
+ * using the same key/index values as `Document#get()` / `Document#getPair()`.
+ *
+ * Map keys are represented by their resolved scalar value and sequence items
+ * by their zero-based index. An empty array points at the document root.
+ */
+export type NodePath = readonly NodePathSegment[]
+
 export class YAMLError extends Error {
   name: 'YAMLParseError' | 'YAMLWarning'
   code: ErrorCode
@@ -34,36 +49,67 @@ export class YAMLError extends Error {
   pos: [number, number]
   linePos?: [LinePos] | [LinePos, LinePos]
 
+  /**
+   * Path to the node or containing collection of the error.
+   * The key/index values match the document model's `get()`/`getPair()`
+   * accessors; an empty array identifies the document root.
+   */
+  nodePath: NodePath
+
+  /**
+   * The verbatim source text slice covered by `pos`, once the error has been
+   * associated with its input source. `undefined` until that happens.
+   */
+  source?: string
+
   constructor(
     name: YAMLError['name'],
     pos: [number, number],
     code: ErrorCode,
-    message: string
+    message: string,
+    nodePath: NodePath = []
   ) {
     super()
     this.name = name
     this.code = code
     this.message = message
     this.pos = pos
+    this.nodePath = nodePath
   }
 }
 
 export class YAMLParseError extends YAMLError {
-  constructor(pos: [number, number], code: ErrorCode, message: string) {
-    super('YAMLParseError', pos, code, message)
+  constructor(
+    pos: [number, number],
+    code: ErrorCode,
+    message: string,
+    nodePath?: NodePath
+  ) {
+    super('YAMLParseError', pos, code, message, nodePath)
   }
 }
 
 export class YAMLWarning extends YAMLError {
-  constructor(pos: [number, number], code: ErrorCode, message: string) {
-    super('YAMLWarning', pos, code, message)
+  constructor(
+    pos: [number, number],
+    code: ErrorCode,
+    message: string,
+    nodePath?: NodePath
+  ) {
+    super('YAMLWarning', pos, code, message, nodePath)
   }
 }
 
 export const prettifyError =
   (src: string, lc: LineCounter) =>
   (error: YAMLError): void => {
-    if (error.pos[0] === -1) return
+    const [start, end] = error.pos
+    if (start >= 0 && end >= start) {
+      error.source = src.slice(start, end)
+    } else {
+      error.source = ''
+    }
+    if (start === -1) return
     error.linePos = error.pos.map(pos => lc.linePos(pos)) as
       [LinePos] | [LinePos, LinePos]
     const { line, col } = error.linePos[0]
@@ -92,9 +138,9 @@ export const prettifyError =
 
     if (/[^ ]/.test(lineStr)) {
       let count = 1
-      const end = error.linePos[1]
-      if (end?.line === line && end.col > col) {
-        count = Math.max(1, Math.min(end.col - col, 80 - ci))
+      const endLine = error.linePos[1]
+      if (endLine?.line === line && endLine.col > col) {
+        count = Math.max(1, Math.min(endLine.col - col, 80 - ci))
       }
       const pointer = ' '.repeat(ci) + '^'.repeat(count)
       error.message += `:\n\n${lineStr}\n${pointer}\n`

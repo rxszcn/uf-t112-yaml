@@ -7,6 +7,7 @@ import type { FlowCollection, Token } from '../parse/cst.ts'
 import type { CollectionTag } from '../schema/types.ts'
 import type { ComposeContext, ComposeNode } from './compose-node.ts'
 import type { ComposeErrorHandler } from './composer.ts'
+import { mapKeyPathValue } from './node-path.ts'
 import { resolveEnd } from './resolve-end.ts'
 import { resolveProps } from './resolve-props.ts'
 import { containsNewline } from './util-contains-newline.ts'
@@ -32,6 +33,7 @@ export function resolveFlowCollection(
   const atRoot = ctx.atRoot
   if (atRoot) ctx.atRoot = false
   if (ctx.atKey) ctx.atKey = false
+  const { nodePath } = ctx
 
   let offset = fc.offset + fc.start.source.length
   for (let i = 0; i < fc.items.length; ++i) {
@@ -110,12 +112,14 @@ export function resolveFlowCollection(
     if (!isMap && !sep && !props.found) {
       // item is a value in a seq
       // → key & sep are empty, start does not include ? or :
+      nodePath.path.push(i)
       const valueNode = value
         ? composeNode(ctx, value, props, onError)
         : composeEmptyNode(ctx, props.end, sep, null, props, onError)
       ;(coll as YAMLSeq)._push(valueNode)
       offset = valueNode.range![2]
       if (isBlock(value)) onError(valueNode.range!, 'BLOCK_IN_FLOW', blockMsg)
+      nodePath.path.pop()
     } else {
       // item is a key+value pair
 
@@ -127,6 +131,10 @@ export function resolveFlowCollection(
         : composeEmptyNode(ctx, keyStart, start, null, props, onError)
       if (isBlock(key)) onError(keyNode.range!, 'BLOCK_IN_FLOW', blockMsg)
       ctx.atKey = false
+
+      // From here on, the item identifies this collection entry by its key
+      const keyPath = mapKeyPathValue(keyNode)
+      nodePath.path.push(keyPath)
 
       // value properties
       const valueProps = resolveProps(sep ?? [], {
@@ -208,6 +216,7 @@ export function resolveFlowCollection(
         ;(coll as YAMLSeq)._push(map)
       }
       offset = valueNode ? valueNode.range![2] : valueProps.end
+      nodePath.path.pop()
     }
   }
 

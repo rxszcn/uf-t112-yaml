@@ -297,7 +297,7 @@ describe('pretty errors', () => {
         ]
       }
     ])
-    expect(doc.errors[0]).not.toHaveProperty('source')
+    expect(doc.errors[0].source).toBe('def')
   })
 
   test('multiple trailing commas in mappings (#7)', () => {
@@ -318,7 +318,7 @@ describe('pretty errors', () => {
         ]
       }
     ])
-    expect(docs[0].errors[0]).not.toHaveProperty('source')
+    expect(docs[0].errors[0].source).toBe(',')
     expect(docs[1].errors).toMatchObject([
       {
         code: 'UNEXPECTED_TOKEN',
@@ -349,8 +349,8 @@ describe('pretty errors', () => {
         ]
       }
     ])
-    expect(docs[1].errors[0]).not.toHaveProperty('source')
-    expect(docs[1].errors[1]).not.toHaveProperty('source')
+    expect(docs[1].errors[0].source).toBe(',')
+    expect(docs[1].errors[1].source).toBe(',')
   })
 
   test('pretty warnings', () => {
@@ -362,7 +362,7 @@ describe('pretty errors', () => {
   test('repeated CR', () => {
     const src = '[' + '\r'.repeat(80)
     const doc = YAML.parseDocument(src, { prettyErrors: true })
-    expect(doc.errors[0]).not.toHaveProperty('source')
+    expect(doc.errors[0].source).toBe('')
   })
 })
 

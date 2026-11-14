@@ -1,5 +1,6 @@
 import type { ComposeContext } from '../compose/compose-node.ts'
 import type { ComposeErrorHandler } from '../compose/composer.ts'
+import { createNodePathTracker } from '../compose/node-path.ts'
 import { resolveBlockScalar } from '../compose/resolve-block-scalar.ts'
 import { resolveFlowScalar } from '../compose/resolve-flow-scalar.ts'
 import type { ErrorCode } from '../errors.ts'
@@ -58,7 +59,10 @@ export function resolveAsScalar(
         return resolveFlowScalar(token, strict, _onError)
       case 'block-scalar':
         return resolveBlockScalar(
-          { options: { strict } } as ComposeContext,
+          {
+            options: { strict },
+            nodePath: createNodePathTracker()
+          } as ComposeContext,
           token,
           _onError
         )

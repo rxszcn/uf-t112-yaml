@@ -12,6 +12,7 @@ import {
   composeNode
 } from './compose-node.ts'
 import type { ComposeErrorHandler } from './composer.ts'
+import { createNodePathTracker } from './node-path.ts'
 import { resolveEnd } from './resolve-end.ts'
 import { resolveProps } from './resolve-props.ts'
 
@@ -28,7 +29,8 @@ export function composeDoc<Value extends DocValue = DocValue>(
     atRoot: true,
     directives: doc.directives,
     options: doc.options,
-    schema: doc.schema
+    schema: doc.schema,
+    nodePath: createNodePathTracker()
   }
   const props = resolveProps(start, {
     indicator: 'doc-start',
